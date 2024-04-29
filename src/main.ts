@@ -32,7 +32,13 @@ const highLevel = async () => {
     const fileProcessor = new InputOutputProcessor(inputFile, csvMapping);
     fileProcessor.processFile();
     const inputSpec = fileProcessor.getInputSpec();
-    Exporter.export(inputSpec, 'newTest');
+    const outputSpec = fileProcessor.getOutputSpec();
+
+    const isInputOutputTheSame = JSON.stringify(inputSpec) === JSON.stringify(outputSpec);
+
+
+    Exporter.export(inputSpec, 'newTestInput');
+    Exporter.export(outputSpec, 'newTestOutput');
 }
 
 highLevel();

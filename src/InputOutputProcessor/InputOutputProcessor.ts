@@ -1,13 +1,26 @@
 import {DefaultSchemaObject, InputMapping, SchemaObject} from "../types/types";
-import fs from "fs";
+
+
+enum ProcessingState {
+    HEADER,
+    INPUT,
+    OUTPUT
+}
+
+function deepCopy(obj: any) {
+    return JSON.parse(JSON.stringify(obj));
+}
 
 export class InputOutputProcessor {
-    private processingInput: boolean = false;
     private rowCounter: number = 0;
-    private inputSpec: SchemaObject = {...DefaultSchemaObject};
-    private mandatoryFields: string[] = [];
+    private inputSpec: SchemaObject = deepCopy(DefaultSchemaObject);
+    private outputSpec: SchemaObject = deepCopy(DefaultSchemaObject);
+    private inputMandatoryFields: string[] = [];
+    private outputMandatoryFields: string[] = [];
     private readonly results: string[][];
     private readonly mapping: InputMapping;
+    private currentState: ProcessingState = ProcessingState.HEADER;
+
 
     constructor(results: string[][], mapping: InputMapping) {
         this.results = results;
@@ -18,36 +31,49 @@ export class InputOutputProcessor {
         return this.inputSpec;
     }
 
+    getOutputSpec(): SchemaObject{
+        return this.outputSpec;
+    }
+
     processFile() {
         for(let i = 0; i < this.results.length; i++) {
             if( this.results[i]['0'] === '\nINPUTS' ) {
-                this.processingInput = true;
+                this.currentState = ProcessingState.INPUT;
                 this.rowCounter = 0;
                 continue;
             }
             if (this.results[i]['0'] === '\nOUTPUTS') {
-                break;
+                console.log(this.inputSpec);
+                this.currentState = ProcessingState.OUTPUT;
+                this.rowCounter = 0;
+                continue;
+            }
+            if (this.results[i][0] === '\n' || this.results[i][this.mapping.dataType] === ''){
+                this.currentState = ProcessingState.HEADER;
+                continue;
             }
             if(this.results[i][this.mapping.fieldName] === '' ) {
                 continue;
             }
-
-            if(!this.processingInput){
-                continue;
-            }
             this.rowCounter++;
-
             if (this.rowCounter < 2){
                 continue;
             }
-
-            this.processRow(this.results[i], this.inputSpec, this.mandatoryFields, i);
+            switch(this.currentState){
+                case ProcessingState.INPUT:
+                    this.processRow(this.results[i], this.inputSpec, this.inputMandatoryFields, i, this.currentState);
+                    break;
+                case ProcessingState.OUTPUT:
+                    this.processRow(this.results[i], this.outputSpec, this.outputMandatoryFields, i, this.currentState);
+                    break;
+            }
         }
 
-        this.inputSpec['required'] = [...this.mandatoryFields];
+        this.inputSpec['required'] = [...this.inputMandatoryFields];
+        this.outputSpec['required'] = [...this.outputMandatoryFields];
     }
 
-    private processRow(row: string[], specification: any , mandatoryFields: string[], i: number) {
+    private processRow(row: string[], specification: any , mandatoryFields: string[], i: number, currentState: ProcessingState) {
         const type = row[this.mapping.dataType].toLowerCase();
         const size = row[this.mapping.size];
 
@@ -57,20 +83,21 @@ export class InputOutputProcessor {
             specification.properties[fieldName] = {
                 type: 'array',
                 items:{
-                    title: `BUSINESS_INPUTS.${row[this.mapping.title]}`,
+                    title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.':''}${row[this.mapping.title]}`,
                     description: row[this.mapping.description],
                     type: subType.toLowerCase(),
                 }
             }
         } else{
             specification.properties[row[this.mapping.fieldName]] = {
-                title: `BUSINESS_INPUTS.${row[this.mapping.title]}`,
+                title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.':''}${row[this.mapping.title]}`,
                 description: row[this.mapping.description],
                 type: type,
             }
 
             if (row[this.mapping.exampleData] !== ''){
-                specification.properties[row[this.mapping.fieldName]]['examples'] = [row[this.mapping.exampleData]]
+                const examples = row[this.mapping.exampleData].split(',').map((example: string) => example.trim());
+                specification.properties[row[this.mapping.fieldName]]['examples'] = examples;
             }
 
             if(row[this.mapping.mandatory] === 'Y') {
