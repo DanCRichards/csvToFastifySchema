@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-node index.js $1
+node src/index.js $1
 
 # Replace non-breaking space with actual space
 sed -i '' 's/\xC2\xA0/ /g' $1

@@ -1,0 +1,28 @@
+Status,FINAL,,,,,Design - To Do,
+SOP ,SOP - Dangerous Goods Un Numbers List - Overview (azure.com),,,,,Design - in progress,
+Feature Ticket,Feature 25506 Dangerous Goods Un Numbers List Service (azure.com),,,,,Design - completed,
+TMS Sub-System,Base,,,,,Design changed needs rework,
+TMS-API,BS_DANGEROUS_GOODS.GET_UN_NUMBERS,,,,,OpenAPI Spec complete,
+TMS-OWN,TMBSADGD.GET_DANGEROUS_GOODS,,,,,,
+Service Description,This service retrieves a list of UN numbers used for identifying dangerous goods.,,,,,,
+Proposed End-point,GET /dangerousGoods/unNumbers,,,,,,
+INPUTS,,,,,,,
+TMS OWN Stored Proc Field,TMS API JSON Field,Mandatory ,Type,Size,Example Data,API Field,Comment / Description
+dgi_un_number_col,DGI_UN_NUMBER,N,String,4,"1950, 1732",unitedNationsNumber,The United Nations number by which the dangerous goods are known.
+dgi_shipping_name_col,DGI_SHIPPING_NAME,N,String,60,AEROSOLS,shippingName,"A brief textural description/shipping name of the dangerous goods.
+Wildcard enabled"
+dgi_dgcl_identifier_col,DGI_DGCL_IDENTIFIER,N,String,4,"8, 6.1",dangerousGoodsClassCode,The classification of the Dangerous Goods.
+,,,,,,,
+,,,,,,,
+OUTPUTS,,,,,,,
+TMS OWN Stored Proc Field,TMS API JSON Field,Mandatory ,Type,Size,Example Data,API Field,Comment / Description
+dgi_un_number,DGI_UN_NUMBER,N,String,4,"1950, 1732",unitedNationsNumber,The United Nations number by which the dangerous goods are known.
+dgi_shipping_name,DGI_SHIPPING_NAME,N,String,60,AEROSOLS,shippingName,A brief textural description/shipping name of the dangerous goods.
+dgi_dgcl_identifier,DGI_DGCL_IDENTIFIER,N,String,4,8,dangerousGoodsClassCode,The classification of the Dangerous Goods.
+dgi_subrisks,DGI_SUBRISKS,N,String,9,6.1,subRisks,The Subsidiary Risk classification of Dangerous Goods Items.
+dgi_pgt_code,DGI_PGT_CODE,N,String,4,"I, II or III",packagingGroup,Indicates the packaging requirements for Dangerous Goods
+dgi_technical_name_reqd_ind,DGI_TECHNICAL_NAME_REQD_IND,Y,Boolean,,,isTechicalNameRequired,Yes indicates that the DG item must be supplemented with the Technical Name.
+dgi_subrisks_ovr_ind,DGI_SUBRISKS_OVR_IND,Y,Boolean,,,overrideSubRisk,Yes indicates that the DG item may be overridden with the Subrisk.
+dgi_pgt_code_ovr_ind,DGI_PGT_CODE_OVR_IND,Y,Boolean,,,overridePackageType,Yes indicates that the DG item must be overridden with the Packing Group.
+dgi_dgc_family_type,DGI_DGC_FAMILY_TYPE,N,String,,"1, 2",dangerousGoodsClassFamily,Family of the Dangerous goods class
+dgi_hcdg_ind,DGI_HCDG_IND,Y,Boolean,,,isHcdg,Yes indicates that the DG item is a High consequence dangerous goods

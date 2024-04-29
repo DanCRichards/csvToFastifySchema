@@ -1,0 +1,34 @@
+{
+  type: 'object',
+  description: '',
+  properties: {
+    unitedNationsNumber: {
+      title: 'BUSINESS_INPUTS.DGI_UN_NUMBER',
+      description: 'The United Nations number by which the dangerous goods are known.',
+      type: 'string',
+      examples: [
+        '1950, 1732'
+      ],
+      maxLength: 4
+    },
+    shippingName: {
+      title: 'BUSINESS_INPUTS.DGI_SHIPPING_NAME',
+      description: 'A brief textural description/shipping name of the dangerous goods.\nWildcard enabled',
+      type: 'string',
+      examples: [
+        'AEROSOLS'
+      ],
+      maxLength: 60
+    },
+    dangerousGoodsClassCode: {
+      title: 'BUSINESS_INPUTS.DGI_DGCL_IDENTIFIER',
+      description: 'The classification of the Dangerous Goods.',
+      type: 'string',
+      examples: [
+        '8, 6.1'
+      ],
+      maxLength: 4
+    }
+  },
+  required: []
+}
