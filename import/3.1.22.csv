@@ -1,0 +1,24 @@
+Status,FINAL,,,,,,Design - To Do,
+SOP ,SOP - Daily Container Bookings Cancellation Eligibility - Overview (azure.com),,,,,,Design - in progress,
+Feature Ticket,,,,,,,Design - completed,
+TMS Sub-System,CHS,,,,,,Design changed needs rework,
+TMS-API,CHS_DAILY_CONTAINER_BOOKINGS.BULK_CANCELLATION_CHECK,,,,,,OpenAPI Spec complete,
+TMS-OWN,TMCHADCB.BULK_CANCELLATION_CHECK,,,,,,,
+Service Description,This service takes an array of booking numbers as input and provides the eligible (with/without penalty) and ineligible ones for cancellation as output,,,,,,,
+Proposed End-point,GET /containerBookings/bulkCancelEligibility,,,,,,,
+INPUTS,,,,,,,,
+TMS OWN Stored Proc Field,TMS API JSON Field,Mandatory ,Type,Size,Example Data,Parent API Field,API Field,Comment / Description
+bookings_array_chr,BOOKING_NUMBER_LIST,Y,Array,10,,,bookingNumbers,Array of booking numbers to be canelled
+,,,Number,,,bookingNumbers,,
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+OUTPUTS,,,,,,,,
+TMS OWN Stored Proc Field,TMS API JSON Field,Mandatory ,Type,Size,Example Data,Parent API Field,API Field,Comment / Description
+eligible_without_penalty_arr,ELIGIBLE_BOOKING_WITHOUT_PENALTY_LIST,N,Array,,,,eligibleWithoutPenalty,Array of booking numbers that can be cancelled wihtout penalty
+,,,Number,10,,eligibleWithoutPenalty,,
+eligible_with_penalty_arr,ELIGIBLE_BOOKING_WITH_PENALTY_LIST,N,Array,,,,eligibleWithPenalty,Array of booking numbers that may incur penalty
+,,,Number,10,,eligibleWithPenalty,,
+ineligible_bookings_arr,INELIGIBLE_BOOKING_LIST,N,Array,,,,ineligible,Array of booking numbers that cannot be cancelled
+,,,Number,10,,ineligible,,
+Must handle information message as an output,,,,,,,,

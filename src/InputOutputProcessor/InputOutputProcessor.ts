@@ -1,14 +1,22 @@
 import {DefaultSchemaObject, InputMapping, SchemaObject} from "../types/types";
+import {Stack} from "../utils/Stack";
 
 
 enum ProcessingState {
-    HEADER,
-    INPUT,
-    OUTPUT
+    HEADER = 'HEADER',
+    INPUT = 'INPUT',
+    OUTPUT = 'OUTPUT'
 }
 
 function deepCopy(obj: any) {
     return JSON.parse(JSON.stringify(obj));
+}
+
+export type StackObjectType = 'array' | 'object';
+
+export interface StackObject {
+    Type: StackObjectType,
+    FieldName: string
 }
 
 export class InputOutputProcessor {
@@ -20,6 +28,7 @@ export class InputOutputProcessor {
     private readonly results: string[][];
     private readonly mapping: InputMapping;
     private currentState: ProcessingState = ProcessingState.HEADER;
+    public stack = new Stack<StackObject>();
 
 
     constructor(results: string[][], mapping: InputMapping) {
@@ -73,36 +82,101 @@ export class InputOutputProcessor {
         this.outputSpec['required'] = [...this.outputMandatoryFields];
     }
 
+    appendField(row: string[], specification: SchemaObject, inputObject: any, log = false){
+
+        const fieldName = row[this.mapping.fieldName];
+        const dataType = row[this.mapping.dataType]
+        const parentFields = row[this.mapping.apiParentField];
+
+        const parentFieldsExpanded = parentFields.split(',');
+
+        const atRootLevel = this.stack.size() == 0;
+
+        if(['array','object'].includes(dataType.toLowerCase())){
+            this.stack.push({
+                Type: dataType.toLowerCase() as StackObjectType,
+                FieldName: fieldName
+            })
+        }
+
+       if(atRootLevel){
+            specification.properties[fieldName] = inputObject;
+            return;
+        }
+
+       // Assuming that the response will always be an object. Change this + change the stack implementation if we will return an array
+        let cursor = specification.properties;
+
+       let parentObjectType: StackObjectType = 'object'
+       // Traverse the Children Object
+        for (let i = 0; i < this.stack.size(); i++){
+            const stackItem = this.stack.getStack()[i];
+            switch(stackItem.Type){
+                case 'array':
+                    cursor = cursor[`${stackItem.FieldName}`].items
+                    parentObjectType = 'array';
+                    break;
+                case 'object':
+                    cursor = cursor[`${stackItem.FieldName}`].properties
+                    parentObjectType = 'object';
+                    break;
+            }
+        }
+
+        // At the child leaf of the object / value
+        // Change the specific point of cursor
+        switch(parentObjectType){
+            case 'array':
+                // Unsure what to do here...
+                if(['array','object'].includes(dataType.toLowerCase())){
+                    cursor[fieldName] = inputObject
+                } else {
+                    Object.assign(cursor, inputObject)
+                }
+                break;
+            case 'object':
+                cursor[fieldName] = inputObject
+                break;
+        }
+    }
+
+
     private processRow(row: string[], specification: any , mandatoryFields: string[], i: number, currentState: ProcessingState) {
         const type = row[this.mapping.dataType].toLowerCase();
         const size = row[this.mapping.size];
+        const fieldName = row[this.mapping.fieldName];
 
-        if(type.includes('array')){
-            const fieldName = row[this.mapping.fieldName].split('[')[0];
-            const subType = type.split('[')[1].split(']')[0];
-            specification.properties[fieldName] = {
-                type: 'array',
-                items:{
+        switch (type.toLowerCase()){
+            case 'array':
+                const arrayField = {
+                    type: 'array',
+                        title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.':''}${row[this.mapping.title]}`,
+                        description: row[this.mapping.description],
+                        items:{
+                        }
+                }
+                this.appendField(row, specification, arrayField)
+                break;
+            case 'object':
+                const field = {
+                    type: 'object',
                     title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.':''}${row[this.mapping.title]}`,
                     description: row[this.mapping.description],
-                    type: subType.toLowerCase(),
+                    properties:{
+                    }
                 }
-            }
-        } else{
-            specification.properties[row[this.mapping.fieldName]] = {
-                title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.':''}${row[this.mapping.title]}`,
-                description: row[this.mapping.description],
-                type: type,
-            }
+                this.appendField(row, specification, field)
+                break;
+            default:
+                const defaultField = {
+                    title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.':''}${row[this.mapping.title]}`,
+                    description: row[this.mapping.description],
+                    type: type,
+                }
 
-            if (row[this.mapping.exampleData] !== ''){
-                const examples = row[this.mapping.exampleData].split(',').map((example: string) => example.trim());
-                specification.properties[row[this.mapping.fieldName]]['examples'] = examples;
-            }
+                this.appendField(row, specification, defaultField);
 
-            if(row[this.mapping.mandatory] === 'Y') {
-                mandatoryFields.push(row[this.mapping.fieldName]);
-            }
+                break;
         }
 
         if(size === ''){

@@ -8,9 +8,8 @@ export const DefaultSchemaObject: SchemaObject = {
 
 export type InputFileSchema = string[][];
 
-
-
 export type InputMapping = {
+    apiParentField: number,
     fieldName: number,
     title: number,
     mandatory: number,

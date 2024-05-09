@@ -6,14 +6,15 @@ import {Exporter} from "./Exporter/Exporter";
 const fs = require('fs');
 
 
-const csvMapping: InputMapping = {
-    fieldName: 6,
+export const csvMapping: InputMapping = {
+    apiParentField: 6,
+    fieldName: 7,
     title: 1,
     mandatory: 2,
     dataType: 3,
     size: 4,
     exampleData: 5,
-    description: 7,
+    description: 8,
 }
 
 
