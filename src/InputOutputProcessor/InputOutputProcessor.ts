@@ -1,5 +1,6 @@
 import {DefaultSchemaObject, InputMapping, SchemaObject} from "../types/types";
 import {Stack} from "../utils/Stack";
+import {stringify} from "ts-jest";
 
 
 enum ProcessingState {
@@ -16,6 +17,7 @@ export type StackObjectType = 'array' | 'object';
 
 export interface StackObject {
     Type: StackObjectType,
+    isRoot: boolean,
     FieldName: string
 }
 
@@ -83,60 +85,83 @@ export class InputOutputProcessor {
     }
 
     appendField(row: string[], specification: SchemaObject, inputObject: any, log = false){
-
         const fieldName = row[this.mapping.fieldName];
         const dataType = row[this.mapping.dataType]
-        const parentFields = row[this.mapping.apiParentField];
+        const rootFieldName = 'root';
+        const parentField = row[this.mapping.apiParentField] == '' ? rootFieldName : row[this.mapping.apiParentField];
 
-        const parentFieldsExpanded = parentFields.split(',');
 
-        const atRootLevel = this.stack.size() == 0;
+        const parentFields = parentField.split(',');
+        const lastParentField = parentFields[parentFields.length - 1];
 
-        if(['array','object'].includes(dataType.toLowerCase())){
+        // Todo add the ability to start with an array
+        // Initialise the stack. Assuming all responses will have a parent object
+        if (this.stack.isEmpty()){
             this.stack.push({
-                Type: dataType.toLowerCase() as StackObjectType,
-                FieldName: fieldName
-            })
+                Type: 'object',
+                isRoot: true,
+                FieldName: rootFieldName
+            });
         }
 
-       if(atRootLevel){
-            specification.properties[fieldName] = inputObject;
-            return;
-        }
-
-       // Assuming that the response will always be an object. Change this + change the stack implementation if we will return an array
-        let cursor = specification.properties;
-
-       let parentObjectType: StackObjectType = 'object'
-       // Traverse the Children Object
-        for (let i = 0; i < this.stack.size(); i++){
-            const stackItem = this.stack.getStack()[i];
-            switch(stackItem.Type){
-                case 'array':
-                    cursor = cursor[`${stackItem.FieldName}`].items
-                    parentObjectType = 'array';
-                    break;
-                case 'object':
-                    cursor = cursor[`${stackItem.FieldName}`].properties
-                    parentObjectType = 'object';
-                    break;
+        if(this.stack.peek()?.FieldName != lastParentField.trim() && this.stack.size() > 1){
+            while(this.stack.peek()?.FieldName != lastParentField){
+                this.stack.pop();
             }
         }
 
-        // At the child leaf of the object / value
-        // Change the specific point of cursor
-        switch(parentObjectType){
+       // Assuming that the response will always be an object. Change this + change the stack implementation if we will return an array
+        let cursor = specification;
+
+        const cursorLog: any[] = [structuredClone(cursor)];
+        const stackMovementLog: string[] = ['0'];
+
+
+        // Let the cursor traverse the object until we are at the parent of the child leaf.
+        for (let i = 0; i < this.stack.size(); i++) {
+            if (this.stack.size() == 1) break;
+            const stackItem = this.stack.getStack()[i];
+
+            switch (stackItem.Type) {
+                case 'array':
+                    if (stackItem.isRoot) {
+                        cursor = cursor.items;
+                    } else {
+                        cursor = cursor[`${stackItem.FieldName}`]
+                    }
+                    break;
+                case 'object':
+                    if (stackItem.isRoot) {
+                        cursor = cursor.properties;
+                    } else {
+                        cursor = cursor[`${stackItem.FieldName}`]
+                    }
+                    break;
+            }
+            cursorLog.push(cursor)
+        }
+
+
+        // Insert the input object to the object or the array.
+        const parentFieldname = this.stack.peek()?.FieldName || '';
+        switch(this.stack.peek()?.Type || 'object'){
             case 'array':
-                // Unsure what to do here...
-                if(['array','object'].includes(dataType.toLowerCase())){
-                    cursor[fieldName] = inputObject
-                } else {
-                    Object.assign(cursor, inputObject)
-                }
+                    cursor.items = inputObject
                 break;
             case 'object':
-                cursor[fieldName] = inputObject
+
+                cursor.properties[fieldName] = inputObject
                 break;
+        }
+
+
+        // If the current object is array or object add to stack.
+        if(['array','object'].includes(dataType.toLowerCase())){
+            this.stack.push({
+                Type: dataType.toLowerCase() as StackObjectType,
+                FieldName: fieldName,
+                isRoot: false,
+            })
         }
     }
 

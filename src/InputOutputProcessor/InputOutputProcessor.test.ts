@@ -165,7 +165,6 @@ describe('InputOutputProcessor', () => {
                 inputObject:{
                     type: 'object',
                     properties:{
-
                     }
                 }
             },
@@ -212,7 +211,7 @@ describe('InputOutputProcessor', () => {
                 }
             },
             {
-                row: ['dest_rl_id_col', 'DESTINATION_ID', 'Y', 'Number', '10', '', '', '', 'The id of the impacted service'],
+                row: ['dest_rl_id_col', 'DESTINATION_ID', 'Y', 'Number', '10', '', 'impactedServices', '', 'The id of the impacted service'],
                 inputObject: {
                     title: 'BUSINESS_INPUTS.DESTINATION_ID',
                     description: 'The id of the impacted service',
