@@ -10,6 +10,8 @@ To convert CSV files with a specified format to fastify SchemaObjects to allow f
 > Your team might build API specs in Excel or another spreadsheet document software and a process might require the mapping of those spreadsheets to fastify based APIs. This helps with automating that. 
 
 
+## Usage:
+```npm run start *file location of your input file* ```
 
 ## Roadmap: 
 
