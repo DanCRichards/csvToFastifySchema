@@ -1,6 +1,6 @@
 import {DefaultSchemaObject, InputMapping, SchemaObject} from "../types/types";
 import {Stack} from "../utils/Stack";
-import {stringify} from "ts-jest";
+import {csvMapping} from "../main";
 
 
 enum ProcessingState {
@@ -30,7 +30,7 @@ export class InputOutputProcessor {
     private readonly results: string[][];
     private readonly mapping: InputMapping;
     private currentState: ProcessingState = ProcessingState.HEADER;
-    public stack = new Stack<StackObject>();
+    public cursorPositionStack = new Stack<StackObject>();
 
 
     constructor(results: string[][], mapping: InputMapping) {
@@ -54,22 +54,24 @@ export class InputOutputProcessor {
                 continue;
             }
             if (this.results[i]['0'] === '\nOUTPUTS') {
-                console.log(this.inputSpec);
                 this.currentState = ProcessingState.OUTPUT;
                 this.rowCounter = 0;
-                continue;
-            }
-            if (this.results[i][0] === '\n' || this.results[i][this.mapping.dataType] === ''){
-                this.currentState = ProcessingState.HEADER;
-                continue;
-            }
-            if(this.results[i][this.mapping.fieldName] === '' ) {
                 continue;
             }
             this.rowCounter++;
             if (this.rowCounter < 2){
                 continue;
             }
+
+            if(this.results[i][this.mapping.dataType] == '' || this.results[i][this.mapping.dataType] == '\n' || this.results[i][this.mapping.dataType] == undefined){
+                continue;
+            }
+
+            if(this.results[1][0] == 'TMS OWN Stored Proc Field'){
+                continue;
+            }
+
+
             switch(this.currentState){
                 case ProcessingState.INPUT:
                     this.processRow(this.results[i], this.inputSpec, this.inputMandatoryFields, i, this.currentState);
@@ -77,6 +79,8 @@ export class InputOutputProcessor {
                 case ProcessingState.OUTPUT:
                     this.processRow(this.results[i], this.outputSpec, this.outputMandatoryFields, i, this.currentState);
                     break;
+                default:
+                    continue;
             }
         }
 
@@ -84,80 +88,104 @@ export class InputOutputProcessor {
         this.outputSpec['required'] = [...this.outputMandatoryFields];
     }
 
-    appendField(row: string[], specification: SchemaObject, inputObject: any, log = false){
+    /**
+     * Traverse the cursor through the stack to the correct position
+     * @param cursor
+     */
+    traverseCursorThroughStack(cursor: any): any{
+        for(let i = 0; i < this.cursorPositionStack.getStack().length; i++){
+            if(i == 0) continue;
+            const parentStackItem = this.cursorPositionStack.getStack()[i-1];
+            switch(parentStackItem.Type){
+                case 'array':
+                    if(parentStackItem.isRoot){
+                        cursor = cursor.items;
+                    } else{
+                        cursor = cursor[parentStackItem.FieldName].items;
+                    }
+                    break;
+                case "object":
+                    if(parentStackItem.isRoot){
+                        cursor = cursor.properties;
+                    } else{
+                        cursor = cursor[parentStackItem.FieldName].properties;
+                    }
+                    break;
+            }
+        }
+        return cursor;
+    }
+
+    insertObjectAtCursorPosition(cursor: any, fieldName: string, insertObject: any){
+        let objectToInsert = insertObject;
+
+        // If the field name is empty, then we don't need to insert the field name
+        if (fieldName.trim() != ''){
+            objectToInsert = {[`${fieldName}`]:insertObject};
+        }
+
+        const topStackItem = this.cursorPositionStack.peek();
+        switch(topStackItem!.Type){
+            case 'array':
+                if(topStackItem!.isRoot){
+                    Object.assign(cursor.items, objectToInsert);
+                } else {
+                    Object.assign(cursor[topStackItem!.FieldName].items, objectToInsert);
+                }
+                break;
+            case 'object':
+                if(topStackItem!.isRoot){
+                    Object.assign(cursor.properties, objectToInsert);
+                } else {
+                    Object.assign(cursor[topStackItem!.FieldName].properties, objectToInsert);
+                }
+                break;
+        }
+        return cursor;
+    }
+
+   public initialiseCursorPositionStack(){
+       this.cursorPositionStack.push({
+           Type: 'object',
+           isRoot: true,
+           FieldName: 'root',
+       });
+   }
+
+   public shouldRepositionCursorPointerStack(lastParentField: string){
+       return this.cursorPositionStack.peek()?.FieldName != lastParentField.trim() && this.cursorPositionStack.size() > 1
+   }
+
+   public repositionCursorPointerStack(lastParentField: string){
+       while(this.cursorPositionStack.peek()?.FieldName != lastParentField && this.cursorPositionStack.size() != 0){
+           this.cursorPositionStack.pop();
+       }
+   }
+
+    insertRowIntoSpecification(row: string[], specification: SchemaObject, inputObject: any, log = false){
         const fieldName = row[this.mapping.fieldName];
         const dataType = row[this.mapping.dataType]
         const rootFieldName = 'root';
         const parentField = row[this.mapping.apiParentField] == '' ? rootFieldName : row[this.mapping.apiParentField];
 
-
         const parentFields = parentField.split(',');
         const lastParentField = parentFields[parentFields.length - 1];
 
-        // Todo add the ability to start with an array
-        // Initialise the stack. Assuming all responses will have a parent object
-        if (this.stack.isEmpty()){
-            this.stack.push({
-                Type: 'object',
-                isRoot: true,
-                FieldName: rootFieldName
-            });
+        if (this.cursorPositionStack.isEmpty()){
+            this.initialiseCursorPositionStack();
         }
 
-        if(this.stack.peek()?.FieldName != lastParentField.trim() && this.stack.size() > 1){
-            while(this.stack.peek()?.FieldName != lastParentField){
-                this.stack.pop();
-            }
+        if(this.shouldRepositionCursorPointerStack(lastParentField)){
+            this.repositionCursorPointerStack(lastParentField);
         }
 
-       // Assuming that the response will always be an object. Change this + change the stack implementation if we will return an array
         let cursor = specification;
-
-        const cursorLog: any[] = [structuredClone(cursor)];
-        const stackMovementLog: string[] = ['0'];
-
-
-        // Let the cursor traverse the object until we are at the parent of the child leaf.
-        for (let i = 0; i < this.stack.size(); i++) {
-            if (this.stack.size() == 1) break;
-            const stackItem = this.stack.getStack()[i];
-
-            switch (stackItem.Type) {
-                case 'array':
-                    if (stackItem.isRoot) {
-                        cursor = cursor.items;
-                    } else {
-                        cursor = cursor[`${stackItem.FieldName}`]
-                    }
-                    break;
-                case 'object':
-                    if (stackItem.isRoot) {
-                        cursor = cursor.properties;
-                    } else {
-                        cursor = cursor[`${stackItem.FieldName}`]
-                    }
-                    break;
-            }
-            cursorLog.push(cursor)
-        }
+        cursor = this.traverseCursorThroughStack(cursor);
+        this.insertObjectAtCursorPosition(cursor, fieldName, inputObject);
 
 
-        // Insert the input object to the object or the array.
-        const parentFieldname = this.stack.peek()?.FieldName || '';
-        switch(this.stack.peek()?.Type || 'object'){
-            case 'array':
-                    cursor.items = inputObject
-                break;
-            case 'object':
-
-                cursor.properties[fieldName] = inputObject
-                break;
-        }
-
-
-        // If the current object is array or object add to stack.
         if(['array','object'].includes(dataType.toLowerCase())){
-            this.stack.push({
+            this.cursorPositionStack.push({
                 Type: dataType.toLowerCase() as StackObjectType,
                 FieldName: fieldName,
                 isRoot: false,
@@ -165,70 +193,62 @@ export class InputOutputProcessor {
         }
     }
 
+    private getRowObject(type: string, row: string[], currentState: ProcessingState, specification: any){
+        const size = row[this.mapping.size].split(','); // Will be one item if there is no ','
+        const parsedSize = parseInt(size[0])
+
+        switch (type.toLowerCase()){
+            case 'array':
+                return {
+                    type: 'array',
+                    title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.' : ''}${row[this.mapping.title]}`,
+                    description: row[this.mapping.description],
+                    items: {}
+                };
+            case 'object':
+                return {
+                    type: 'object',
+                    title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.' : ''}${row[this.mapping.title]}`,
+                    description: row[this.mapping.description],
+                    properties: {}
+                };
+            case 'string':
+                return {
+                    title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.' : ''}${row[this.mapping.title]}`,
+                    description: row[this.mapping.description],
+                    type: type,
+                    maxLength: parsedSize
+                };
+            case 'number':
+            case 'integer':
+                return {
+                    title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.' : ''}${row[this.mapping.title]}`,
+                    description: row[this.mapping.description],
+                    type: type,
+                    maximum: `maxByDigits(${parsedSize})`
+                };
+            case 'boolean':
+                return {
+                    title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.' : ''}${row[this.mapping.title]}`,
+                    description: row[this.mapping.description],
+                    type: type,
+                    examples: [true, false]
+                };
+        }
+
+
+    }
 
     private processRow(row: string[], specification: any , mandatoryFields: string[], i: number, currentState: ProcessingState) {
         const type = row[this.mapping.dataType].toLowerCase();
         const size = row[this.mapping.size];
-        const fieldName = row[this.mapping.fieldName];
 
-        switch (type.toLowerCase()){
-            case 'array':
-                const arrayField = {
-                    type: 'array',
-                        title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.':''}${row[this.mapping.title]}`,
-                        description: row[this.mapping.description],
-                        items:{
-                        }
-                }
-                this.appendField(row, specification, arrayField)
-                break;
-            case 'object':
-                const field = {
-                    type: 'object',
-                    title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.':''}${row[this.mapping.title]}`,
-                    description: row[this.mapping.description],
-                    properties:{
-                    }
-                }
-                this.appendField(row, specification, field)
-                break;
-            default:
-                const defaultField = {
-                    title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.':''}${row[this.mapping.title]}`,
-                    description: row[this.mapping.description],
-                    type: type,
-                }
-
-                this.appendField(row, specification, defaultField);
-
-                break;
-        }
+        const insertObject = this.getRowObject(type, row, currentState, specification);
+        this.insertRowIntoSpecification(row, specification, insertObject);
 
         if(size === ''){
             return;
         }
 
-        switch(type) {
-            case 'string':
-                try{
-                    specification.properties[row[this.mapping.fieldName]]['maxLength'] = parseInt(size);
-                }
-                catch (e) {
-                    throw new Error(`Error processing row ${i}. Cannot pass size as int. apiFieldName: ${row[this.mapping.fieldName]}`);
-                }
-                break;
-            case 'number':
-            case 'integer':
-                if(size.includes(',')){
-                    break;
-                }
-                specification.properties[row[this.mapping.fieldName]]['maximum'] = `maxByDigits(${row[this.mapping.size]})`;
-                break;
-            case 'boolean':
-                specification.properties[row[this.mapping.fieldName]]['examples'] = [true, false];
-                break;
-            default:
-                break;
-        }
     }
 }

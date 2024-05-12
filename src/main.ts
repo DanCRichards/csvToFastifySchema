@@ -31,15 +31,24 @@ const highLevel = async () => {
     const inputFile = fileIngestor.getResults();
 
     const fileProcessor = new InputOutputProcessor(inputFile, csvMapping);
+
     fileProcessor.processFile();
     const inputSpec = fileProcessor.getInputSpec();
     const outputSpec = fileProcessor.getOutputSpec();
 
+
     const isInputOutputTheSame = JSON.stringify(inputSpec) === JSON.stringify(outputSpec);
 
 
-    Exporter.export(inputSpec, 'newTestInput');
-    Exporter.export(outputSpec, 'newTestOutput');
+    // Create a variable export file name based on the input file name
+    // Should remove .csv at the end
+    // Should also remove the directory prefix at the start
+
+    const exportFileName = fileName.split('/').pop()!.split('.').slice(0, -1).join('.');
+
+
+    Exporter.export(inputSpec, `input_spec_${exportFileName}`);
+    Exporter.export(outputSpec, `output_spec${exportFileName}`);
 }
 
 highLevel();
