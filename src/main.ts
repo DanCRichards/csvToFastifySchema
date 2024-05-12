@@ -46,7 +46,6 @@ const highLevel = async () => {
 
     const exportFileName = fileName.split('/').pop()!.split('.').slice(0, -1).join('.');
 
-
     Exporter.export(inputSpec, `input_spec_${exportFileName}`);
     Exporter.export(outputSpec, `output_spec${exportFileName}`);
 }

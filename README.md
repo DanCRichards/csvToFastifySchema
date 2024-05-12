@@ -15,10 +15,7 @@ To convert CSV files with a specified format to fastify SchemaObjects to allow f
 
 ## Roadmap: 
 
-1. Get it working!
-2. Convert to Typescript!
 3. Add customisable mappings between CSVs and SchemaObject fields 
-4. TESTS!
 5. Abstract the services
     - This will allow for different input types and mappings between inputs and outputs. 
 6. Document the code 
