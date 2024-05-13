@@ -225,12 +225,6 @@ export class InputOutputProcessor {
                     maxLength: parsedSize
                 };
             case 'number':
-                return {
-                    title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.' : ''}${row[this.mapping.title]}`,
-                    description: row[this.mapping.description],
-                    type: type,
-                    maximum: `maxByDigits(${parsedSize})`
-                };
             case 'integer':
                 return {
                     title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.' : ''}${row[this.mapping.title]}`,
