@@ -197,6 +197,11 @@ export class InputOutputProcessor {
         const size = row[this.mapping.size].split(','); // Will be one item if there is no ','
         const parsedSize = parseInt(size[0])
 
+        // Parse a number of size 10 as an integer
+        if(type.toLowerCase() == 'number' && parsedSize == 10){
+            type = 'integer'
+        }
+
         switch (type.toLowerCase()){
             case 'array':
                 return {
@@ -220,6 +225,12 @@ export class InputOutputProcessor {
                     maxLength: parsedSize
                 };
             case 'number':
+                return {
+                    title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.' : ''}${row[this.mapping.title]}`,
+                    description: row[this.mapping.description],
+                    type: type,
+                    maximum: `maxByDigits(${parsedSize})`
+                };
             case 'integer':
                 return {
                     title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.' : ''}${row[this.mapping.title]}`,
@@ -233,6 +244,21 @@ export class InputOutputProcessor {
                     description: row[this.mapping.description],
                     type: type,
                     examples: [true, false]
+                };
+            case 'date':
+                return {
+                    title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.' : ''}${row[this.mapping.title]}`,
+                    description: row[this.mapping.description],
+                    type: 'string',
+                    format:'date',
+                };
+
+            case 'datetime':
+                return {
+                    title: `${currentState === ProcessingState.INPUT ? 'BUSINESS_INPUTS.' : ''}${row[this.mapping.title]}`,
+                    description: row[this.mapping.description],
+                    type: 'string',
+                    format:'date-time',
                 };
         }
 
