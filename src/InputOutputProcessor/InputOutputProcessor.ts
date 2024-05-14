@@ -71,6 +71,10 @@ export class InputOutputProcessor {
                 continue;
             }
 
+            if(this.results[i][this.mapping.description] == 'leg destination'){
+                console.log('WERE AT THE TROUBLE POINT!')
+            }
+
 
             switch(this.currentState){
                 case ProcessingState.INPUT:
@@ -157,7 +161,7 @@ export class InputOutputProcessor {
    }
 
    public repositionCursorPointerStack(lastParentField: string){
-       while(this.cursorPositionStack.peek()?.FieldName != lastParentField && this.cursorPositionStack.size() != 0){
+       while(this.cursorPositionStack.peek()?.FieldName.trim() != lastParentField.trim() && this.cursorPositionStack.size() != 0){
            this.cursorPositionStack.pop();
        }
    }
